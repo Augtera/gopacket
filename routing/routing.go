@@ -4,6 +4,7 @@
 // that can be found in the LICENSE file in the root of the source
 // tree.
 
+//go:build linux
 // +build linux
 
 // Package routing provides a very basic but mostly functional implementation of
@@ -20,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"sort"
 	"strings"
@@ -214,11 +216,14 @@ loop:
 	if err != nil {
 		return nil, err
 	}
-	for i, iface := range ifaces {
-		if i != iface.Index-1 {
-			return nil, fmt.Errorf("out of order iface %d = %v", i, iface)
-		}
-		rtr.ifaces = append(rtr.ifaces, iface)
+	maxIndex := float64(0)
+	for _, iface := range ifaces {
+		maxIndex = math.Max(maxIndex, float64(iface.Index))
+	}
+	rtr.ifaces = make([]net.Interface, int(maxIndex))
+	rtr.addrs = make([]ipAddrs, int(maxIndex))
+	for _, iface := range ifaces {
+		rtr.ifaces[iface.Index-1] = iface
 		var addrs ipAddrs
 		ifaceAddrs, err := iface.Addrs()
 		if err != nil {
@@ -238,7 +243,7 @@ loop:
 				}
 			}
 		}
-		rtr.addrs = append(rtr.addrs, addrs)
+		rtr.addrs[iface.Index-1] = addrs
 	}
 	return rtr, nil
 }
